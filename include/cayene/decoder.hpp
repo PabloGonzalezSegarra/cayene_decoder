@@ -40,6 +40,11 @@ public:
     void add_data_type(uint8_t type_id, const std::string& name, std::size_t size);
 
 private:
+    static int16_t bytes_to_int16(const std::span<uint8_t>& data_span);
+    static uint16_t bytes_to_uint16(const std::span<uint8_t>& data_span);
+    static int32_t bytes_to_int24(const std::span<uint8_t>& data_span);
+    static uint32_t bytes_to_uint24(const std::span<uint8_t>& data_span);
+
     // Decoding functions for standard data types
     // Is assumed that the data_span passed to these functions has the correct size
     static uint8_t decode_digital_input(const std::span<uint8_t>& data_span);

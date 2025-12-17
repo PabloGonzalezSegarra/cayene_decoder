@@ -141,47 +141,82 @@ void Decoder::add_data_type(uint8_t type_id, const std::string& name, std::size_
     }
 }
 
+uint16_t Decoder::bytes_to_uint16(const std::span<uint8_t>& data_span)
+{
+    return static_cast<uint16_t>(data_span.at(0) << 8 | data_span.at(1));
+}
+
+int16_t Decoder::bytes_to_int16(const std::span<uint8_t>& data_span)
+{
+    uint16_t unsigned_value = bytes_to_uint16(data_span);
+    // Si el valor es mayor que el máximo positivo de int16_t, es negativo
+    if (unsigned_value > 0x7FFF)
+    {
+        return static_cast<int16_t>(unsigned_value - 0x10000);
+    }
+
+    return static_cast<int16_t>(unsigned_value);
+}
+
+uint32_t Decoder::bytes_to_uint24(const std::span<uint8_t>& data_span)
+{
+    return static_cast<uint32_t>(data_span.at(0) << 16 | data_span.at(1) << 8 | data_span.at(2)) &
+           0x00FFFFFF;
+}
+
+int32_t Decoder::bytes_to_int24(const std::span<uint8_t>& data_span)
+{
+    uint32_t unsigned_value = bytes_to_uint24(data_span);
+    // Si el valor es mayor que el máximo positivo de int24_t, es negativo
+    if (unsigned_value > 0x7FFFFF)
+    {
+        return static_cast<int32_t>(unsigned_value - 0x1000000);
+    }
+
+    return static_cast<int32_t>(unsigned_value);
+}
+
 uint8_t Decoder::decode_digital_input(const std::span<uint8_t>& data_span)
 {
-    return data_span[0];
+    return data_span.at(0);
 }
 
 uint8_t Decoder::decode_digital_output(const std::span<uint8_t>& data_span)
 {
-    return data_span[0];
+    return data_span.at(0);
 }
 
 double Decoder::decode_analog_input(const std::span<uint8_t>& data_span)
 {
-    auto raw_value = static_cast<int16_t>(data_span.at(0) << 8 | data_span.at(1));
+    auto raw_value = bytes_to_int16(data_span);
     return raw_value / 100.0;
 }
 
 double Decoder::decode_analog_output(const std::span<uint8_t>& data_span)
 {
-    auto raw_value = static_cast<int16_t>(data_span.at(0) << 8 | data_span.at(1));
+    auto raw_value = bytes_to_int16(data_span);
     return raw_value / 100.0;
 }
 
 uint16_t Decoder::decode_luminosity(const std::span<uint8_t>& data_span)
 {
-    return static_cast<uint16_t>(data_span.at(0) << 8 | data_span.at(1));
+    return bytes_to_uint16(data_span);
 }
 
 uint8_t Decoder::decode_presence(const std::span<uint8_t>& data_span)
 {
-    return data_span[0];
+    return data_span.at(0);
 }
 
 double Decoder::decode_temperature(const std::span<uint8_t>& data_span)
 {
-    auto raw_value = static_cast<int16_t>(data_span.at(0) << 8 | data_span.at(1));
+    auto raw_value = bytes_to_int16(data_span);
     return raw_value / 10.0;
 }
 
 double Decoder::decode_humidity(const std::span<uint8_t>& data_span)
 {
-    auto raw_value = static_cast<uint16_t>(data_span.at(0) << 8 | data_span.at(1));
+    auto raw_value = bytes_to_uint16(data_span);
     return raw_value / 10.0;
 }
 
@@ -189,9 +224,9 @@ Json Decoder::decode_accelerometer(const std::span<uint8_t>& data_span)
 {
     Json accel_json = Json::object();
 
-    auto x_raw = static_cast<int16_t>(data_span.at(0) << 8 | data_span.at(1));
-    auto y_raw = static_cast<int16_t>(data_span.at(2) << 8 | data_span.at(3));
-    auto z_raw = static_cast<int16_t>(data_span.at(4) << 8 | data_span.at(5));
+    auto x_raw = bytes_to_int16(data_span.subspan(0, 2));
+    auto y_raw = bytes_to_int16(data_span.subspan(2, 2));
+    auto z_raw = bytes_to_int16(data_span.subspan(4, 2));
 
     double x = x_raw / 1000.0;
     double y = y_raw / 1000.0;
@@ -206,13 +241,13 @@ Json Decoder::decode_accelerometer(const std::span<uint8_t>& data_span)
 
 double Decoder::decode_barometer(const std::span<uint8_t>& data_span)
 {
-    auto raw_value = static_cast<uint16_t>(data_span.at(0) << 8 | data_span.at(1));
+    auto raw_value = bytes_to_uint16(data_span);
     return raw_value / 10.0;
 }
 
 double Decoder::decode_gyrometer(const std::span<uint8_t>& data_span)
 {
-    auto raw_value = static_cast<int16_t>(data_span.at(0) << 8 | data_span.at(1));
+    auto raw_value = bytes_to_int16(data_span);
     return raw_value / 100.0;
 }
 
@@ -220,13 +255,9 @@ Json Decoder::decode_gps(const std::span<uint8_t>& data_span)
 {
     Json gps_json = Json::object();
 
-    auto lat_raw =
-        static_cast<int32_t>(data_span.at(0) << 16 | data_span.at(1) << 8 | data_span.at(2));
-    auto lon_raw =
-        static_cast<int32_t>(data_span.at(3) << 16 | data_span.at(4) << 8 | data_span.at(5));
-    auto alt_raw =
-        static_cast<int32_t>(data_span.at(6) << 16 | data_span.at(7) << 8 | data_span.at(8));
-
+    auto lat_raw = bytes_to_int24(data_span.subspan(0, 3));
+    auto lon_raw = bytes_to_int24(data_span.subspan(3, 3));
+    auto alt_raw = bytes_to_int24(data_span.subspan(6, 3));
     double latitude = lat_raw / 10000.0;
     double longitude = lon_raw / 10000.0;
     double altitude = alt_raw / 100.0;
